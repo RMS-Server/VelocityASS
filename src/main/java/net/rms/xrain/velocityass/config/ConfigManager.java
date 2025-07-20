@@ -1,5 +1,7 @@
 package net.rms.xrain.velocityass.config;
 
+import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.server.RegisteredServer;
 import org.slf4j.Logger;
 import org.yaml.snakeyaml.Yaml;
 
@@ -16,12 +18,14 @@ public class ConfigManager {
     private final Path configFile;
     private final Logger logger;
     private final Map<String, ServerConfig> serverConfigs;
+    private final ProxyServer proxyServer;
     
-    public ConfigManager(Path dataDirectory, Logger logger) {
+    public ConfigManager(Path dataDirectory, Logger logger, ProxyServer proxyServer) {
         this.dataDirectory = dataDirectory;
         this.configFile = dataDirectory.resolve("config.yml");
         this.logger = logger;
         this.serverConfigs = new ConcurrentHashMap<>();
+        this.proxyServer = proxyServer;
     }
     
     public void loadConfig() throws IOException {
@@ -45,50 +49,63 @@ public class ConfigManager {
     }
     
     private void createDefaultConfig() throws IOException {
-        String defaultConfig = """
-                # VelocityASS 多线路服务器配置
-                # 配置格式说明：
-                # servers:
-                #   服务器名称:
-                #     routes:
-                #       - address: "服务器地址:端口"
-                #         priority: 优先级数字(越小越优先)
-                #         enabled: true/false
-                #     auto-sort: true/false (是否根据延迟自动排序)
-                #     ping-interval: 30 (ping检测间隔，秒)
-                #     ping-timeout: 5000 (ping超时时间，毫秒)
-                
-                servers:
-                  survival:
-                    routes:
-                      - address: "survival1.example.com:25565"
-                        priority: 1
-                        enabled: true
-                      - address: "survival2.example.com:25565"
-                        priority: 2
-                        enabled: true
-                      - address: "survival3.example.com:25565"
-                        priority: 3
-                        enabled: true
-                    auto-sort: true
-                    ping-interval: 30
-                    ping-timeout: 5000
-                  
-                  creative:
-                    routes:
-                      - address: "creative1.example.com:25565"
-                        priority: 1
-                        enabled: true
-                      - address: "creative2.example.com:25565"
-                        priority: 2
-                        enabled: true
-                    auto-sort: true
-                    ping-interval: 30
-                    ping-timeout: 5000
-                """;
+        StringBuilder configBuilder = new StringBuilder();
+        configBuilder.append("# VelocityASS 多线路服务器配置\n");
+        configBuilder.append("# 此配置基于Velocity现有服务器自动生成\n");
+        configBuilder.append("# 配置格式说明：\n");
+        configBuilder.append("# servers:\n");
+        configBuilder.append("#   服务器名称:\n");
+        configBuilder.append("#     routes:\n");
+        configBuilder.append("#       - address: \"服务器地址:端口\"\n");
+        configBuilder.append("#         priority: 优先级数字(越小越优先)\n");
+        configBuilder.append("#         enabled: true/false\n");
+        configBuilder.append("#     auto-sort: true/false (是否根据延迟自动排序)\n");
+        configBuilder.append("#     ping-interval: 30 (ping检测间隔，秒)\n");
+        configBuilder.append("#     ping-timeout: 5000 (ping超时时间，毫秒)\n\n");
+        configBuilder.append("servers:\n");
         
-        Files.write(configFile, defaultConfig.getBytes());
-        logger.info("已创建默认配置文件: {}", configFile);
+        // 从Velocity获取已注册的服务器
+        boolean hasServers = false;
+        for (RegisteredServer server : proxyServer.getAllServers()) {
+            String serverName = server.getServerInfo().getName();
+            String address = server.getServerInfo().getAddress().getHostString() + ":" + 
+                           server.getServerInfo().getAddress().getPort();
+            
+            configBuilder.append("  ").append(serverName).append(":\n");
+            configBuilder.append("    routes:\n");
+            configBuilder.append("      - address: \"").append(address).append("\"\n");
+            configBuilder.append("        priority: 1\n");
+            configBuilder.append("        enabled: true\n");
+            configBuilder.append("      # 在这里添加更多路由，例如：\n");
+            configBuilder.append("      # - address: \"").append(address.replace(":25565", "2:25565")).append("\"\n");
+            configBuilder.append("      #   priority: 2\n");
+            configBuilder.append("      #   enabled: true\n");
+            configBuilder.append("    auto-sort: true\n");
+            configBuilder.append("    ping-interval: 30\n");
+            configBuilder.append("    ping-timeout: 5000\n\n");
+            
+            hasServers = true;
+        }
+        
+        // 如果没有找到服务器，创建示例配置
+        if (!hasServers) {
+            configBuilder.append("  # 没有检测到Velocity服务器，以下是示例配置\n");
+            configBuilder.append("  survival:\n");
+            configBuilder.append("    routes:\n");
+            configBuilder.append("      - address: \"survival1.example.com:25565\"\n");
+            configBuilder.append("        priority: 1\n");
+            configBuilder.append("        enabled: true\n");
+            configBuilder.append("      - address: \"survival2.example.com:25565\"\n");
+            configBuilder.append("        priority: 2\n");
+            configBuilder.append("        enabled: true\n");
+            configBuilder.append("    auto-sort: true\n");
+            configBuilder.append("    ping-interval: 30\n");
+            configBuilder.append("    ping-timeout: 5000\n");
+        }
+        
+        Files.write(configFile, configBuilder.toString().getBytes());
+        logger.info("已基于Velocity现有服务器创建配置文件: {} (包含 {} 个服务器)", 
+                configFile, proxyServer.getAllServers().size());
     }
     
     @SuppressWarnings("unchecked")

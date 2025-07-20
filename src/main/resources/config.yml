@@ -1,4 +1,5 @@
 # VelocityASS 多线路服务器配置
+# 此文件会在首次启动时根据Velocity的现有服务器自动生成
 # 配置格式说明：
 # servers:
 #   服务器名称:
@@ -11,29 +12,16 @@
 #     ping-timeout: 5000 (ping超时时间，毫秒)
 
 servers:
-  survival:
+  # 示例配置，首次启动时会被Velocity服务器配置替换
+  example_server:
     routes:
-      - address: "survival1.example.com:25565"
+      - address: "example.com:25565"
         priority: 1
         enabled: true
-      - address: "survival2.example.com:25565"
-        priority: 2
-        enabled: true
-      - address: "survival3.example.com:25565"
-        priority: 3
-        enabled: true
-    auto-sort: true
-    ping-interval: 30
-    ping-timeout: 5000
-  
-  creative:
-    routes:
-      - address: "creative1.example.com:25565"
-        priority: 1
-        enabled: true
-      - address: "creative2.example.com:25565"
-        priority: 2
-        enabled: true
+      # 为同一个服务器添加更多线路：
+      # - address: "example2.com:25565"
+      #   priority: 2
+      #   enabled: true
     auto-sort: true
     ping-interval: 30
     ping-timeout: 5000

@@ -45,15 +45,16 @@ public class AutoSelectServer {
         logger.info("VelocityASS 插件正在初始化...");
         
         try {
-            configManager = new ConfigManager(dataDirectory, logger);
+            configManager = new ConfigManager(dataDirectory, logger, server);
             configManager.loadConfig();
             
             routeManager = new RouteManager(configManager, server, logger);
             pingService = new PingService(routeManager, logger);
             
-            server.getEventManager().register(this, new ServerConnectionListener(routeManager, logger));
+            // 注册事件监听器
+            server.getEventManager().register(this, new ServerConnectionListener(routeManager, logger, server, this));
             
-            // 注册命令
+            // 注册管理命令
             server.getCommandManager().register("vass", new VelocityAssCommand(routeManager, logger));
             server.getCommandManager().register("velocityass", new VelocityAssCommand(routeManager, logger));
             
