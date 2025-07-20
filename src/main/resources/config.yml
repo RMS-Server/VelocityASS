@@ -1,0 +1,39 @@
+# VelocityASS 多线路服务器配置
+# 配置格式说明：
+# servers:
+#   服务器名称:
+#     routes:
+#       - address: "服务器地址:端口"
+#         priority: 优先级数字(越小越优先)
+#         enabled: true/false
+#     auto-sort: true/false (是否根据延迟自动排序)
+#     ping-interval: 30 (ping检测间隔，秒)
+#     ping-timeout: 5000 (ping超时时间，毫秒)
+
+servers:
+  survival:
+    routes:
+      - address: "survival1.example.com:25565"
+        priority: 1
+        enabled: true
+      - address: "survival2.example.com:25565"
+        priority: 2
+        enabled: true
+      - address: "survival3.example.com:25565"
+        priority: 3
+        enabled: true
+    auto-sort: true
+    ping-interval: 30
+    ping-timeout: 5000
+  
+  creative:
+    routes:
+      - address: "creative1.example.com:25565"
+        priority: 1
+        enabled: true
+      - address: "creative2.example.com:25565"
+        priority: 2
+        enabled: true
+    auto-sort: true
+    ping-interval: 30
+    ping-timeout: 5000

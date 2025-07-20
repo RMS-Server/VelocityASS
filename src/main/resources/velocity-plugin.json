@@ -1,0 +1,9 @@
+{
+  "id": "velocityass",
+  "name": "VelocityASS",
+  "version": "1.0.0",
+  "description": "Advanced Server Selection plugin for Velocity with multi-route support",
+  "authors": ["XRain"],
+  "main": "net.rms.xrain.velocityass.AutoSelectServer",
+  "dependencies": []
+}
