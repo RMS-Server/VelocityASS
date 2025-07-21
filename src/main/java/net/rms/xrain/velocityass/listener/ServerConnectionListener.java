@@ -1,7 +1,10 @@
 package net.rms.xrain.velocityass.listener;
 
 import com.velocitypowered.api.event.Subscribe;
+import com.velocitypowered.api.event.connection.DisconnectEvent;
+import com.velocitypowered.api.event.player.ServerConnectedEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
+import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
@@ -11,6 +14,7 @@ import org.slf4j.Logger;
 
 import java.net.InetSocketAddress;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 public class ServerConnectionListener {
     private final RouteManager routeManager;
@@ -40,8 +44,8 @@ public class ServerConnectionListener {
             return;
         }
         
-        // 选择最佳路由
-        RouteInfo bestRoute = routeManager.selectBestRoute(serverName);
+        // 使用带宽感知的路由选择（传入玩家ID）
+        RouteInfo bestRoute = routeManager.selectBestRoute(serverName, event.getPlayer().getUniqueId());
         if (bestRoute == null) {
             logger.warn("服务器 {} 没有可用路由，玩家 {} 连接可能失败", 
                     serverName, event.getPlayer().getUsername());
@@ -112,5 +116,42 @@ public class ServerConnectionListener {
             // 标记该路由不可用
             routeManager.markRouteUnavailable(serverName, route.getAddress());
         }
+    }
+    
+    @Subscribe
+    public void onServerConnected(ServerConnectedEvent event) {
+        Player player = event.getPlayer();
+        String newServerName = event.getServer().getServerInfo().getName();
+        
+        // 如果玩家已经有之前的路由映射，先清理旧的映射
+        String oldRouteAddress = routeManager.getPlayerRouteMapping().get(player.getUniqueId());
+        if (oldRouteAddress != null) {
+            // 从旧路由中移除玩家
+            routeManager.removePlayerFromAllRoutes(player.getUniqueId());
+            logger.debug("玩家 {} 切换服务器，已从旧路由 {} 移除", player.getUsername(), oldRouteAddress);
+        }
+        
+        // 启动定期带宽更新任务
+        proxyServer.getScheduler()
+                .buildTask(plugin, () -> {
+                    if (player.isActive()) {
+                        routeManager.updatePlayerBandwidthUsage(player);
+                    }
+                })
+                .repeat(5, TimeUnit.SECONDS) // 每5秒更新一次
+                .schedule();
+        
+        logger.debug("玩家 {} 连接到服务器 {}，已启动带宽监控", 
+                player.getUsername(), newServerName);
+    }
+    
+    @Subscribe
+    public void onDisconnect(DisconnectEvent event) {
+        Player player = event.getPlayer();
+        
+        // 玩家断开连接时清理路由映射
+        routeManager.onPlayerDisconnect(player.getUniqueId());
+        
+        logger.debug("玩家 {} 断开连接，已清理路由映射", player.getUsername());
     }
 }

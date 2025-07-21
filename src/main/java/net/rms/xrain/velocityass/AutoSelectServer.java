@@ -74,6 +74,10 @@ public class AutoSelectServer {
             pingService.stopPingTask();
         }
         
+        if (routeManager != null) {
+            routeManager.shutdown();
+        }
+        
         logger.info("VelocityASS 插件已关闭");
     }
     

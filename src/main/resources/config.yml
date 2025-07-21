@@ -7,9 +7,19 @@
 #       - address: "服务器地址:端口"
 #         priority: 优先级数字(越小越优先)
 #         enabled: true/false
+#         max-bandwidth: 1048576 (最大带宽限制，字节/秒，-1表示无限制)
 #     auto-sort: true/false (是否根据延迟自动排序)
 #     ping-interval: 30 (ping检测间隔，秒)
 #     ping-timeout: 5000 (ping超时时间，毫秒)
+#
+# 带宽感知路由功能说明：
+# - max-bandwidth: 设置路由的最大带宽限制（字节/秒）
+#   - -1 或 0: 无限制
+#   - 1048576: 1MB/s
+#   - 2097152: 2MB/s
+# - 系统会自动监控每个路由的带宽使用情况
+# - 当优先级高的路由达到带宽限制的85%时，新连接会路由到下一个优先级的路由
+# - 每5秒更新一次带宽使用统计
 
 servers:
   # 示例配置，首次启动时会被Velocity服务器配置替换
@@ -18,10 +28,12 @@ servers:
       - address: "example.com:25565"
         priority: 1
         enabled: true
+        max-bandwidth: 1048576  # 1MB/s 带宽限制
       # 为同一个服务器添加更多线路：
       # - address: "example2.com:25565"
       #   priority: 2
       #   enabled: true
+      #   max-bandwidth: 2097152  # 2MB/s 带宽限制
     auto-sort: true
     ping-interval: 30
     ping-timeout: 5000
