@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'net.rms.xrain.velocityass'
-version = '1.0.0'
+version = file('plugin.version').text.trim().substring(1)  // 去除V前缀
 sourceCompatibility = '17'
 
 repositories {
@@ -51,3 +51,28 @@ jar {
         attributes 'Main-Class': 'net.rms.xrain.velocityass.AutoSelectServer'
     }
 }
+
+// 更新velocity-plugin.json中的版本号
+task updatePluginJson {
+    doLast {
+        def pluginJsonFile = file('src/main/resources/velocity-plugin.json')
+        def pluginJson = new groovy.json.JsonSlurper().parse(pluginJsonFile)
+        pluginJson.version = version
+        
+        def jsonOutput = new groovy.json.JsonBuilder(pluginJson)
+        pluginJsonFile.text = groovy.json.JsonOutput.prettyPrint(jsonOutput.toString())
+    }
+}
+
+// 更新Java源文件中@Plugin注解的版本号
+task updateJavaVersion {
+    doLast {
+        def javaFile = file('src/main/java/net/rms/xrain/velocityass/AutoSelectServer.java')
+        def content = javaFile.text
+        content = content.replaceAll(/version = "[\d\.]+",/, "version = \"${version}\",")
+        javaFile.text = content
+    }
+}
+
+// 确保在编译之前更新版本号
+compileJava.dependsOn updatePluginJson, updateJavaVersion
