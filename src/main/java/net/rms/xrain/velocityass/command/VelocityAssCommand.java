@@ -199,7 +199,7 @@ public class VelocityAssCommand implements SimpleCommand {
                         route.getCurrentBandwidthUsage() / 1024.0);
             }
             
-            String playerInfo = String.format("玩家: %d", route.getConnectedPlayerCount());
+            String playerInfo = String.format("玩家: %d", getActualPlayerCountForRoute(serverName, route.getAddress()));
             
             invocation.source().sendMessage(Component.text(
                     String.format("  %d. %s (优先级: %d)",
@@ -234,10 +234,8 @@ public class VelocityAssCommand implements SimpleCommand {
             invocation.source().sendMessage(Component.text("无可用路由", NamedTextColor.RED));
         }
         
-        // 显示总体统计
-        int totalPlayers = config.getRoutes().stream()
-                .mapToInt(RouteInfo::getConnectedPlayerCount)
-                .sum();
+        // 显示总体统计 - 使用BandwidthManager获取实际玩家数量
+        int totalPlayers = getActualPlayerCount(serverName);
         double totalBandwidth = config.getRoutes().stream()
                 .mapToDouble(RouteInfo::getCurrentBandwidthUsage)
                 .sum();
@@ -299,14 +297,47 @@ public class VelocityAssCommand implements SimpleCommand {
             if (allStats.isEmpty()) {
                 invocation.source().sendMessage(Component.text("暂无玩家带宽数据", NamedTextColor.GRAY));
             } else {
+                // 获取玩家路由映射用于显示正确的服务器信息
+                java.util.Map<java.util.UUID, String> playerRoutes = routeManager.getPlayerRouteMapping();
+                
                 for (com.velocitypowered.api.proxy.player.PlayerBandwidthStats stats : allStats) {
                     double totalBandwidth = stats.getDownloadSpeed() + stats.getUploadSpeed();
                     NamedTextColor color = totalBandwidth > 100 * 1024 ? NamedTextColor.YELLOW : NamedTextColor.GREEN;
                     
+                    // 通过用户名查找玩家UUID
+                    java.util.Optional<Player> player = routeManager.getProxyServer()
+                            .getAllPlayers().stream()
+                            .filter(p -> p.getUsername().equals(stats.getPlayerUsername()))
+                            .findFirst();
+                    
+                    String routeInfo = "未知";
+                    String serverName = stats.getCurrentServerName();
+                    
+                    if (player.isPresent()) {
+                        String routeAddress = playerRoutes.get(player.get().getUniqueId());
+                        if (routeAddress != null) {
+                            // 通过路由地址找到对应的服务器名
+                            for (ServerConfig config : routeManager.getAllServerConfigs().values()) {
+                                for (RouteInfo route : config.getRoutes()) {
+                                    if (routeAddress.equals(route.getAddress())) {
+                                        routeInfo = String.format("%s -> %s", config.getServerName(), routeAddress);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 获取玩家当前连接的真实服务器
+                        if (player.get().getCurrentServer().isPresent()) {
+                            serverName = player.get().getCurrentServer().get().getServerInfo().getName();
+                        }
+                    }
+                    
                     invocation.source().sendMessage(Component.text(
-                            String.format("%s (服务器: %s)",
+                            String.format("%s (API服务器: %s | 路由: %s)",
                                     stats.getPlayerUsername(),
-                                    stats.getCurrentServerName()),
+                                    serverName != null ? serverName : "null",
+                                    routeInfo),
                             NamedTextColor.WHITE));
                     invocation.source().sendMessage(Component.text(
                             String.format("  带宽: 下载 %.2f KB/s | 上传 %.2f KB/s | 总计 %.2f KB/s",
@@ -333,6 +364,66 @@ public class VelocityAssCommand implements SimpleCommand {
             return ((Player) invocation.source()).getUsername();
         }
         return "控制台";
+    }
+    
+    private int getActualPlayerCount(String serverName) {
+        try {
+            // 获取指定服务器配置下所有路由的玩家总数
+            ServerConfig config = routeManager.getConfigManager().getServerConfig(serverName);
+            if (config == null) {
+                return 0;
+            }
+            
+            int totalCount = 0;
+            for (RouteInfo route : config.getRoutes()) {
+                totalCount += getActualPlayerCountForRoute(serverName, route.getAddress());
+            }
+            
+            return totalCount;
+        } catch (Exception e) {
+            logger.error("获取服务器 {} 的实际玩家数量失败", serverName, e);
+            return 0;
+        }
+    }
+    
+    private int getActualPlayerCountForRoute(String serverName, String routeAddress) {
+        try {
+            com.velocitypowered.api.proxy.player.BandwidthManager bm = 
+                    routeManager.getBandwidthSelector().getBandwidthManager();
+            
+            if (bm == null) {
+                return 0;
+            }
+            
+            // 获取所有玩家带宽统计
+            java.util.Collection<com.velocitypowered.api.proxy.player.PlayerBandwidthStats> allStats = 
+                    bm.getAllPlayerBandwidthStats();
+            
+            // 获取玩家路由映射
+            java.util.Map<java.util.UUID, String> playerRoutes = routeManager.getPlayerRouteMapping();
+            
+            // 统计使用指定路由的玩家数量（不限制当前服务器名）
+            int count = 0;
+            for (com.velocitypowered.api.proxy.player.PlayerBandwidthStats stats : allStats) {
+                // 通过用户名查找玩家UUID
+                java.util.Optional<Player> player = routeManager.getProxyServer()
+                        .getAllPlayers().stream()
+                        .filter(p -> p.getUsername().equals(stats.getPlayerUsername()))
+                        .findFirst();
+                
+                if (player.isPresent()) {
+                    String playerRouteAddress = playerRoutes.get(player.get().getUniqueId());
+                    if (routeAddress.equals(playerRouteAddress)) {
+                        count++;
+                    }
+                }
+            }
+            
+            return count;
+        } catch (Exception e) {
+            logger.error("获取路由 {} 的实际玩家数量失败", routeAddress, e);
+            return 0;
+        }
     }
     
     @Override

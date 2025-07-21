@@ -25,6 +25,7 @@ public class BandwidthAwareRouteSelector {
     
     private static final long BANDWIDTH_UPDATE_INTERVAL = 5; // 5秒更新一次带宽数据
     private static final double BANDWIDTH_THRESHOLD = 0.85; // 85%带宽使用率阈值
+    private static final long BANDWIDTH_DATA_MAX_AGE = 10_000; // 带宽数据最大年龄（10秒）
     
     public BandwidthAwareRouteSelector(ProxyServer proxyServer, Logger logger) {
         this.proxyServer = proxyServer;
@@ -40,6 +41,9 @@ public class BandwidthAwareRouteSelector {
         if (serverConfig == null || serverConfig.getRoutes().isEmpty()) {
             return null;
         }
+        
+        // 确保带宽数据是最新的 - 如果数据太旧或未初始化，立即更新
+        ensureFreshBandwidthData(serverConfig);
         
         List<RouteInfo> routes = serverConfig.getRoutes();
         
@@ -109,13 +113,22 @@ public class BandwidthAwareRouteSelector {
     }
     
     private void startBandwidthMonitoring() {
+        // 立即执行一次带宽数据更新
+        try {
+            logger.info("执行初始带宽数据更新...");
+            updateAllRoutesBandwidthUsage();
+        } catch (Exception e) {
+            logger.warn("初始带宽数据更新失败", e);
+        }
+        
+        // 然后启动定期更新任务
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 updateAllRoutesBandwidthUsage();
             } catch (Exception e) {
                 logger.error("更新路由带宽使用情况时发生错误", e);
             }
-        }, 0, BANDWIDTH_UPDATE_INTERVAL, TimeUnit.SECONDS);
+        }, BANDWIDTH_UPDATE_INTERVAL, BANDWIDTH_UPDATE_INTERVAL, TimeUnit.SECONDS);
         
         logger.info("带宽监控任务已启动，更新间隔: {}秒", BANDWIDTH_UPDATE_INTERVAL);
     }
@@ -188,5 +201,32 @@ public class BandwidthAwareRouteSelector {
     
     public BandwidthManager getBandwidthManager() {
         return bandwidthManager;
+    }
+    
+    /**
+     * 确保带宽数据是最新的，如果数据过时则立即更新
+     */
+    private void ensureFreshBandwidthData(ServerConfig serverConfig) {
+        boolean needsUpdate = false;
+        long currentTime = System.currentTimeMillis();
+        
+        // 检查是否有路由数据过时或未初始化
+        for (RouteInfo route : serverConfig.getRoutes()) {
+            if (route.isBandwidthLimited()) {
+                long lastUpdate = route.getLastBandwidthUpdate();
+                if (lastUpdate == 0 || (currentTime - lastUpdate) > BANDWIDTH_DATA_MAX_AGE) {
+                    needsUpdate = true;
+                    logger.debug("路由 {} 带宽数据过时，需要更新 (上次更新: {}ms前)", 
+                            route.getAddress(), 
+                            lastUpdate == 0 ? "从未" : String.valueOf(currentTime - lastUpdate));
+                    break;
+                }
+            }
+        }
+        
+        if (needsUpdate) {
+            logger.debug("执行即时带宽数据更新");
+            updateAllRoutesBandwidthUsage();
+        }
     }
 }

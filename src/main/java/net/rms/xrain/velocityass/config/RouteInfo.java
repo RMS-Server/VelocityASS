@@ -104,8 +104,8 @@ public class RouteInfo {
         connectedPlayers.add(playerId);
     }
     
-    public void removeConnectedPlayer(UUID playerId) {
-        connectedPlayers.remove(playerId);
+    public boolean removeConnectedPlayer(UUID playerId) {
+        return connectedPlayers.remove(playerId);
     }
     
     public int getConnectedPlayerCount() {
@@ -114,6 +114,10 @@ public class RouteInfo {
     
     public long getLastBandwidthUpdate() {
         return lastBandwidthUpdate;
+    }
+    
+    public void setLastBandwidthUpdate(long lastBandwidthUpdate) {
+        this.lastBandwidthUpdate = lastBandwidthUpdate;
     }
     
     public boolean isBandwidthLimited() {

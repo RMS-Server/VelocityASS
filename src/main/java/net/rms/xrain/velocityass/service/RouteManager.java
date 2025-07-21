@@ -48,6 +48,9 @@ public class RouteManager {
             return null;
         }
         
+        // 确保带宽数据是最新的
+        updateAllRoutesBandwidth();
+        
         RouteInfo bestRoute;
         if (playerId != null) {
             // 使用带宽感知选择器
@@ -67,9 +70,7 @@ public class RouteManager {
         lastConnectionAttempt.put(key, System.currentTimeMillis());
         
         if (playerId != null) {
-            // 先清理该玩家的所有旧路由映射
-            removePlayerFromAllRoutes(playerId);
-            // 然后添加到新路由
+            // 只更新玩家路由映射，不要在这里清理
             playerRouteMapping.put(playerId, bestRoute.getAddress());
         }
         
@@ -135,7 +136,6 @@ public class RouteManager {
             return;
         }
         
-        PlayerBandwidthStats stats = statsOpt.get();
         String routeAddress = playerRouteMapping.get(player.getUniqueId());
         
         if (routeAddress == null) {
@@ -166,28 +166,40 @@ public class RouteManager {
     
     private double calculateRouteBandwidthUsage(RouteInfo route) {
         double totalBandwidth = 0.0;
+        int actualPlayers = 0;
         
+        logger.debug("计算路由 {} 带宽使用, 玩家列表大小: {}", route.getAddress(), route.getConnectedPlayerCount());
+        
+        // 遍历路由中记录的所有玩家
         for (UUID playerId : route.getConnectedPlayers()) {
             Player player = proxyServer.getPlayer(playerId).orElse(null);
             if (player != null) {
-                Optional<PlayerBandwidthStats> statsOpt = bandwidthManager.getPlayerBandwidthStats(playerId);
+                // 使用Player对象而不是UUID获取带宽统计
+                Optional<PlayerBandwidthStats> statsOpt = bandwidthManager.getPlayerBandwidthStats(player);
                 if (statsOpt.isPresent()) {
                     PlayerBandwidthStats stats = statsOpt.get();
                     // 计算总带宽：下载速度 + 上传速度
                     double playerBandwidth = stats.getDownloadSpeed() + stats.getUploadSpeed();
                     totalBandwidth += playerBandwidth;
+                    actualPlayers++;
                     
                     logger.debug("玩家 {} 带宽: 下载 {:.2f} KB/s, 上传 {:.2f} KB/s, 总计 {:.2f} KB/s", 
                             player.getUsername(),
                             stats.getDownloadSpeed() / 1024.0,
                             stats.getUploadSpeed() / 1024.0,
                             playerBandwidth / 1024.0);
+                } else {
+                    logger.debug("无法获取玩家 {} 的带宽统计", player.getUsername());
                 }
+            } else {
+                logger.debug("玩家 {} 已下线，将从路由中移除", playerId);
+                // 清理已下线的玩家
+                route.removeConnectedPlayer(playerId);
             }
         }
         
-        logger.debug("路由 {} 总带宽使用: {:.2f} KB/s ({} 玩家)", 
-                route.getAddress(), totalBandwidth / 1024.0, route.getConnectedPlayerCount());
+        logger.debug("路由 {} 总带宽使用: {:.2f} KB/s ({} 活跃玩家)", 
+                route.getAddress(), totalBandwidth / 1024.0, actualPlayers);
         
         return totalBandwidth;
     }
@@ -230,11 +242,58 @@ public class RouteManager {
     }
     
     public void updateAllRoutesBandwidth() {
+        logger.debug("开始更新所有路由的带宽信息");
+        
+        // 先同步玩家路由映射，确保所有在线玩家都在正确的路由中
+        syncPlayerRouteMapping();
+        
+        // 然后更新带宽使用情况
         getAllServerConfigs().values().forEach(serverConfig -> {
             serverConfig.getRoutes().forEach(route -> {
                 double totalBandwidth = calculateRouteBandwidthUsage(route);
                 route.setCurrentBandwidthUsage(totalBandwidth);
+                // 更新最后更新时间戳
+                route.setLastBandwidthUpdate(System.currentTimeMillis());
+                
+                if (route.isBandwidthLimited()) {
+                    logger.debug("更新路由 {} 带宽: {:.2f}/{:.2f} KB/s ({:.1f}%)", 
+                            route.getAddress(),
+                            totalBandwidth / 1024.0,
+                            route.getMaxBandwidth() / 1024.0,
+                            route.getBandwidthUtilization());
+                }
             });
+        });
+        
+        logger.debug("所有路由带宽信息更新完成");
+    }
+    
+    private void syncPlayerRouteMapping() {
+        // 遍历所有在线玩家，确保他们在正确的路由中
+        proxyServer.getAllPlayers().forEach(player -> {
+            String routeAddress = playerRouteMapping.get(player.getUniqueId());
+            if (routeAddress != null) {
+                // 在所有服务器配置中查找匹配的路由
+                boolean found = false;
+                for (ServerConfig serverConfig : getAllServerConfigs().values()) {
+                    for (RouteInfo route : serverConfig.getRoutes()) {
+                        if (route.getAddress().equals(routeAddress)) {
+                            if (!route.getConnectedPlayers().contains(player.getUniqueId())) {
+                                route.addConnectedPlayer(player.getUniqueId());
+                                logger.debug("同步：将玩家 {} 添加到路由 {} (配置: {})", 
+                                        player.getUsername(), routeAddress, serverConfig.getServerName());
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found) break;
+                }
+                
+                if (!found) {
+                    logger.warn("玩家 {} 的路由 {} 在配置中未找到", player.getUsername(), routeAddress);
+                }
+            }
         });
     }
     
@@ -244,6 +303,10 @@ public class RouteManager {
     
     public Map<UUID, String> getPlayerRouteMapping() {
         return new ConcurrentHashMap<>(playerRouteMapping);
+    }
+    
+    public ProxyServer getProxyServer() {
+        return proxyServer;
     }
     
     public void shutdown() {
