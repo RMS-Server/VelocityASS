@@ -41,3 +41,4 @@ Thumbs.db
 # Claude
 .claude/
 API.md
+gradle.properties.backup
