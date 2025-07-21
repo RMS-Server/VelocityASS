@@ -6,7 +6,6 @@ gradle-app.setting
 
 # Java
 *.class
-*.jar
 !gradle-wrapper.jar
 *.war
 *.ear
