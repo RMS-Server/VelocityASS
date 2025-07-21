@@ -33,10 +33,8 @@ public class PingService {
         running = true;
         logger.info("启动延迟检测服务");
         
-        // 立即执行一次ping检测
         schedulePingTasks();
         
-        // 定期执行ping检测
         executorService.scheduleWithFixedDelay(this::schedulePingTasks, 30, 30, TimeUnit.SECONDS);
     }
     

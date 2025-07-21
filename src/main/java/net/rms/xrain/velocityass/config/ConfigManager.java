@@ -65,7 +65,6 @@ public class ConfigManager {
         configBuilder.append("#     ping-timeout: 5000 (ping超时时间，毫秒)\n\n");
         configBuilder.append("servers:\n");
         
-        // 从Velocity获取已注册的服务器
         boolean hasServers = false;
         for (RegisteredServer server : proxyServer.getAllServers()) {
             String serverName = server.getServerInfo().getName();
@@ -90,7 +89,6 @@ public class ConfigManager {
             hasServers = true;
         }
         
-        // 如果没有找到服务器，创建示例配置
         if (!hasServers) {
             configBuilder.append("  # 没有检测到Velocity服务器，以下是示例配置\n");
             configBuilder.append("  survival:\n");
@@ -129,7 +127,6 @@ public class ConfigManager {
             
             ServerConfig serverConfig = new ServerConfig(serverName);
             
-            // 解析路由配置
             List<Map<String, Object>> routes = (List<Map<String, Object>>) serverData.get("routes");
             if (routes != null) {
                 for (Map<String, Object> routeData : routes) {
@@ -141,7 +138,6 @@ public class ConfigManager {
                     if (address != null && priority != null && enabled != null) {
                         RouteInfo route = new RouteInfo(address, priority, enabled);
                         
-                        // 解析带宽限制
                         if (maxBandwidthObj != null) {
                             try {
                                 long maxBandwidth = maxBandwidthObj instanceof Number ? 
@@ -160,7 +156,6 @@ public class ConfigManager {
                 }
             }
             
-            // 解析其他配置
             Boolean autoSort = (Boolean) serverData.get("auto-sort");
             if (autoSort != null) {
                 serverConfig.setAutoSort(autoSort);

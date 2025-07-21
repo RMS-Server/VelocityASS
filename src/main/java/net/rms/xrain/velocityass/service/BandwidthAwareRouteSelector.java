@@ -23,9 +23,9 @@ public class BandwidthAwareRouteSelector {
     private final BandwidthManager bandwidthManager;
     private final ScheduledExecutorService scheduler;
     
-    private static final long BANDWIDTH_UPDATE_INTERVAL = 5; // 5秒更新一次带宽数据
-    private static final double BANDWIDTH_THRESHOLD = 0.85; // 85%带宽使用率阈值
-    private static final long BANDWIDTH_DATA_MAX_AGE = 10_000; // 带宽数据最大年龄（10秒）
+    private static final long BANDWIDTH_UPDATE_INTERVAL = 5; 
+    private static final double BANDWIDTH_THRESHOLD = 0.85; 
+    private static final long BANDWIDTH_DATA_MAX_AGE = 10_000; 
     
     public BandwidthAwareRouteSelector(ProxyServer proxyServer, Logger logger) {
         this.proxyServer = proxyServer;
@@ -33,7 +33,6 @@ public class BandwidthAwareRouteSelector {
         this.bandwidthManager = proxyServer.getBandwidthManager();
         this.scheduler = Executors.newScheduledThreadPool(1);
         
-        // 启动带宽监控任务
         startBandwidthMonitoring();
     }
     
@@ -42,12 +41,10 @@ public class BandwidthAwareRouteSelector {
             return null;
         }
         
-        // 确保带宽数据是最新的 - 如果数据太旧或未初始化，立即更新
         ensureFreshBandwidthData(serverConfig);
         
         List<RouteInfo> routes = serverConfig.getRoutes();
         
-        // 按优先级排序的可用路由
         RouteInfo selectedRoute = routes.stream()
                 .filter(route -> route.isEnabled() && route.isAvailable())
                 .sorted((r1, r2) -> Integer.compare(r1.getPriority(), r2.getPriority()))
@@ -56,9 +53,7 @@ public class BandwidthAwareRouteSelector {
                 .orElse(null);
         
         if (selectedRoute != null) {
-            // 先确保玩家不在其他路由中
             serverConfig.getRoutes().forEach(route -> route.removeConnectedPlayer(playerId));
-            // 然后记录玩家连接到此路由
             selectedRoute.addConnectedPlayer(playerId);
             logger.debug("为玩家 {} 选择路由: {} (优先级: {}, 带宽使用率: {:.1f}%)", 
                     playerId, selectedRoute.getAddress(), 
@@ -73,26 +68,21 @@ public class BandwidthAwareRouteSelector {
     public RouteInfo selectBestRouteWithFallback(ServerConfig serverConfig, UUID playerId) {
         RouteInfo route = selectBestRoute(serverConfig, playerId);
         
-        // 如果没有找到可用路由，尝试选择带宽使用率最低的路由作为fallback
         if (route == null) {
             route = serverConfig.getRoutes().stream()
                     .filter(r -> r.isEnabled() && r.isAvailable())
                     .sorted((r1, r2) -> {
-                        // 首先按优先级排序
                         int priorityCompare = Integer.compare(r1.getPriority(), r2.getPriority());
                         if (priorityCompare != 0) {
                             return priorityCompare;
                         }
-                        // 然后按带宽使用率排序
                         return Double.compare(r1.getBandwidthUtilization(), r2.getBandwidthUtilization());
                     })
                     .findFirst()
                     .orElse(null);
                     
             if (route != null) {
-                // 先确保玩家不在其他路由中
                 serverConfig.getRoutes().forEach(r -> r.removeConnectedPlayer(playerId));
-                // 然后添加到选定的路由
                 route.addConnectedPlayer(playerId);
                 logger.warn("使用fallback路由为玩家 {} 选择: {} (带宽使用率: {:.1f}%)", 
                         playerId, route.getAddress(), route.getBandwidthUtilization());
@@ -104,16 +94,13 @@ public class BandwidthAwareRouteSelector {
     
     private boolean isBandwidthAvailableForNewConnection(RouteInfo route) {
         if (!route.isBandwidthLimited()) {
-            return true; // 无带宽限制
         }
         
-        // 检查当前带宽使用率是否超过阈值
         double utilizationRate = route.getBandwidthUtilization() / 100.0;
         return utilizationRate < BANDWIDTH_THRESHOLD;
     }
     
     private void startBandwidthMonitoring() {
-        // 立即执行一次带宽数据更新
         try {
             logger.info("执行初始带宽数据更新...");
             updateAllRoutesBandwidthUsage();
@@ -121,7 +108,6 @@ public class BandwidthAwareRouteSelector {
             logger.warn("初始带宽数据更新失败", e);
         }
         
-        // 然后启动定期更新任务
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 updateAllRoutesBandwidthUsage();
@@ -134,7 +120,6 @@ public class BandwidthAwareRouteSelector {
     }
     
     private void updateAllRoutesBandwidthUsage() {
-        // 获取全局带宽快照
         BandwidthSnapshot globalSnapshot = bandwidthManager.getTotalBandwidthSnapshot();
         
         logger.debug("全局带宽统计: {} 玩家, 总下载 {:.2f} KB/s, 总上传 {:.2f} KB/s", 
@@ -142,7 +127,6 @@ public class BandwidthAwareRouteSelector {
                 globalSnapshot.getTotalDownloadSpeed() / 1024.0,
                 globalSnapshot.getTotalUploadSpeed() / 1024.0);
         
-        // 遍历所有在线玩家，更新其路由带宽使用情况
         proxyServer.getAllPlayers().forEach(player -> {
             Optional<PlayerBandwidthStats> statsOpt = bandwidthManager.getPlayerBandwidthStats(player);
             if (statsOpt.isPresent()) {
@@ -156,7 +140,6 @@ public class BandwidthAwareRouteSelector {
         if (player.getCurrentServer().isPresent()) {
             String serverName = player.getCurrentServer().get().getServerInfo().getName();
             
-            // 记录详细的玩家带宽信息
             double totalPlayerBandwidth = stats.getDownloadSpeed() + stats.getUploadSpeed();
             if (totalPlayerBandwidth > 0) {
                 logger.debug("玩家 {} (服务器: {}) 当前带宽: 下载 {:.2f} KB/s, 上传 {:.2f} KB/s, 总计 {:.2f} KB/s", 
@@ -210,7 +193,6 @@ public class BandwidthAwareRouteSelector {
         boolean needsUpdate = false;
         long currentTime = System.currentTimeMillis();
         
-        // 检查是否有路由数据过时或未初始化
         for (RouteInfo route : serverConfig.getRoutes()) {
             if (route.isBandwidthLimited()) {
                 long lastUpdate = route.getLastBandwidthUpdate();

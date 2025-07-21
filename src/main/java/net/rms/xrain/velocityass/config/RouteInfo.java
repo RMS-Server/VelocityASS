@@ -12,10 +12,10 @@ public class RouteInfo {
     private boolean available;
     
     // 带宽相关字段
-    private long maxBandwidth; // 最大带宽限制 (字节/秒)
-    private double currentBandwidthUsage; // 当前带宽使用 (字节/秒)
-    private final Set<UUID> connectedPlayers; // 连接到此路由的玩家
-    private long lastBandwidthUpdate; // 最后一次带宽更新时间
+    private long maxBandwidth;
+    private double currentBandwidthUsage;
+    private final Set<UUID> connectedPlayers; 
+    private long lastBandwidthUpdate; 
     
     public RouteInfo(String address, int priority, boolean enabled) {
         this.address = address;
@@ -23,7 +23,7 @@ public class RouteInfo {
         this.enabled = enabled;
         this.lastPing = -1;
         this.available = true;
-        this.maxBandwidth = -1; // -1 表示无限制
+        this.maxBandwidth = -1; 
         this.currentBandwidthUsage = 0.0;
         this.connectedPlayers = ConcurrentHashMap.newKeySet();
         this.lastBandwidthUpdate = System.currentTimeMillis();
@@ -78,7 +78,6 @@ public class RouteInfo {
         return parts.length > 1 ? Integer.parseInt(parts[1]) : 25565;
     }
     
-    // 带宽相关方法
     public long getMaxBandwidth() {
         return maxBandwidth;
     }
@@ -133,14 +132,14 @@ public class RouteInfo {
     
     public double getBandwidthUtilization() {
         if (!isBandwidthLimited()) {
-            return 0.0; // 无限制时返回0%
+            return 0.0; 
         }
         return (currentBandwidthUsage / maxBandwidth) * 100.0;
     }
     
     public long getAvailableBandwidth() {
         if (!isBandwidthLimited()) {
-            return Long.MAX_VALUE; // 无限制
+            return Long.MAX_VALUE; 
         }
         return Math.max(0, maxBandwidth - (long)currentBandwidthUsage);
     }

@@ -147,7 +147,6 @@ public class VelocityAssCommand implements SimpleCommand {
     private void showAllBandwidth(Invocation invocation) {
         invocation.source().sendMessage(Component.text("=== 所有服务器带宽使用情况 ===", NamedTextColor.GOLD));
         
-        // 先更新所有路由的带宽信息
         routeManager.updateAllRoutesBandwidth();
         
         for (ServerConfig config : routeManager.getAllServerConfigs().values()) {
@@ -163,7 +162,6 @@ public class VelocityAssCommand implements SimpleCommand {
             return;
         }
         
-        // 更新带宽信息
         routeManager.updateAllRoutesBandwidth();
         
         invocation.source().sendMessage(Component.text("=== " + serverName + " 带宽使用情况 ===", NamedTextColor.GOLD));
@@ -171,7 +169,6 @@ public class VelocityAssCommand implements SimpleCommand {
         for (int i = 0; i < config.getRoutes().size(); i++) {
             RouteInfo route = config.getRoutes().get(i);
             
-            // 确定颜色
             NamedTextColor color;
             if (!route.isEnabled()) {
                 color = NamedTextColor.GRAY;
@@ -213,7 +210,6 @@ public class VelocityAssCommand implements SimpleCommand {
                     color
             ));
             
-            // 显示延迟信息
             String ping = route.getLastPing() > 0 ? route.getLastPing() + "ms" : "未知";
             invocation.source().sendMessage(Component.text(
                     String.format("     延迟: %s | 最后更新: %d秒前",
@@ -222,7 +218,6 @@ public class VelocityAssCommand implements SimpleCommand {
             ));
         }
         
-        // 显示推荐路由
         RouteInfo bestRoute = routeManager.getBandwidthSelector()
                 .selectBestRoute(config, java.util.UUID.randomUUID());
         if (bestRoute != null) {
@@ -234,7 +229,6 @@ public class VelocityAssCommand implements SimpleCommand {
             invocation.source().sendMessage(Component.text("无可用路由", NamedTextColor.RED));
         }
         
-        // 显示总体统计 - 使用BandwidthManager获取实际玩家数量
         int totalPlayers = getActualPlayerCount(serverName);
         double totalBandwidth = config.getRoutes().stream()
                 .mapToDouble(RouteInfo::getCurrentBandwidthUsage)
@@ -250,7 +244,6 @@ public class VelocityAssCommand implements SimpleCommand {
         invocation.source().sendMessage(Component.text("=== 带宽调试信息 ===", NamedTextColor.GOLD));
         
         try {
-            // 获取BandwidthManager
             com.velocitypowered.api.proxy.player.BandwidthManager bm = 
                     routeManager.getBandwidthSelector().getBandwidthManager();
             
@@ -259,7 +252,6 @@ public class VelocityAssCommand implements SimpleCommand {
                 return;
             }
             
-            // 显示带宽追踪状态
             boolean trackingEnabled = bm.isBandwidthTrackingEnabled();
             long updateInterval = bm.getUpdateInterval();
             invocation.source().sendMessage(Component.text(
@@ -267,7 +259,6 @@ public class VelocityAssCommand implements SimpleCommand {
                             trackingEnabled ? "已启用" : "已禁用", updateInterval),
                     trackingEnabled ? NamedTextColor.GREEN : NamedTextColor.RED));
             
-            // 获取全局带宽快照
             com.velocitypowered.api.proxy.player.BandwidthSnapshot snapshot = bm.getTotalBandwidthSnapshot();
             invocation.source().sendMessage(Component.text(
                     String.format("全局统计: %d 玩家", snapshot.getTrackedPlayerCount()),
@@ -290,21 +281,18 @@ public class VelocityAssCommand implements SimpleCommand {
             
             invocation.source().sendMessage(Component.text("=== 各玩家详细统计 ===", NamedTextColor.GOLD));
             
-            // 获取所有玩家带宽统计
             java.util.Collection<com.velocitypowered.api.proxy.player.PlayerBandwidthStats> allStats = 
                     bm.getAllPlayerBandwidthStats();
             
             if (allStats.isEmpty()) {
                 invocation.source().sendMessage(Component.text("暂无玩家带宽数据", NamedTextColor.GRAY));
             } else {
-                // 获取玩家路由映射用于显示正确的服务器信息
                 java.util.Map<java.util.UUID, String> playerRoutes = routeManager.getPlayerRouteMapping();
                 
                 for (com.velocitypowered.api.proxy.player.PlayerBandwidthStats stats : allStats) {
                     double totalBandwidth = stats.getDownloadSpeed() + stats.getUploadSpeed();
                     NamedTextColor color = totalBandwidth > 100 * 1024 ? NamedTextColor.YELLOW : NamedTextColor.GREEN;
                     
-                    // 通过用户名查找玩家UUID
                     java.util.Optional<Player> player = routeManager.getProxyServer()
                             .getAllPlayers().stream()
                             .filter(p -> p.getUsername().equals(stats.getPlayerUsername()))
@@ -316,7 +304,6 @@ public class VelocityAssCommand implements SimpleCommand {
                     if (player.isPresent()) {
                         String routeAddress = playerRoutes.get(player.get().getUniqueId());
                         if (routeAddress != null) {
-                            // 通过路由地址找到对应的服务器名
                             for (ServerConfig config : routeManager.getAllServerConfigs().values()) {
                                 for (RouteInfo route : config.getRoutes()) {
                                     if (routeAddress.equals(route.getAddress())) {
@@ -327,7 +314,6 @@ public class VelocityAssCommand implements SimpleCommand {
                             }
                         }
                         
-                        // 获取玩家当前连接的真实服务器
                         if (player.get().getCurrentServer().isPresent()) {
                             serverName = player.get().getCurrentServer().get().getServerInfo().getName();
                         }
@@ -368,7 +354,6 @@ public class VelocityAssCommand implements SimpleCommand {
     
     private int getActualPlayerCount(String serverName) {
         try {
-            // 获取指定服务器配置下所有路由的玩家总数
             ServerConfig config = routeManager.getConfigManager().getServerConfig(serverName);
             if (config == null) {
                 return 0;
@@ -395,17 +380,13 @@ public class VelocityAssCommand implements SimpleCommand {
                 return 0;
             }
             
-            // 获取所有玩家带宽统计
             java.util.Collection<com.velocitypowered.api.proxy.player.PlayerBandwidthStats> allStats = 
                     bm.getAllPlayerBandwidthStats();
             
-            // 获取玩家路由映射
             java.util.Map<java.util.UUID, String> playerRoutes = routeManager.getPlayerRouteMapping();
             
-            // 统计使用指定路由的玩家数量（不限制当前服务器名）
             int count = 0;
             for (com.velocitypowered.api.proxy.player.PlayerBandwidthStats stats : allStats) {
-                // 通过用户名查找玩家UUID
                 java.util.Optional<Player> player = routeManager.getProxyServer()
                         .getAllPlayers().stream()
                         .filter(p -> p.getUsername().equals(stats.getPlayerUsername()))
