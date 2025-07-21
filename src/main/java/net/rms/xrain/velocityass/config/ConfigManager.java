@@ -59,12 +59,12 @@ public class ConfigManager {
         configBuilder.append("#       - address: \"服务器地址:端口\"\n");
         configBuilder.append("#         priority: 优先级数字(越小越优先)\n");
         configBuilder.append("#         enabled: true/false\n");
+        configBuilder.append("#         max-bandwidth: 1048576 (最大带宽限制，字节/秒，-1表示无限制)\n");
         configBuilder.append("#     auto-sort: true/false (是否根据延迟自动排序)\n");
         configBuilder.append("#     ping-interval: 30 (ping检测间隔，秒)\n");
         configBuilder.append("#     ping-timeout: 5000 (ping超时时间，毫秒)\n\n");
         configBuilder.append("servers:\n");
         
-        // 从Velocity获取已注册的服务器
         boolean hasServers = false;
         for (RegisteredServer server : proxyServer.getAllServers()) {
             String serverName = server.getServerInfo().getName();
@@ -76,10 +76,12 @@ public class ConfigManager {
             configBuilder.append("      - address: \"").append(address).append("\"\n");
             configBuilder.append("        priority: 1\n");
             configBuilder.append("        enabled: true\n");
+            configBuilder.append("        max-bandwidth: -1  # 无带宽限制\n");
             configBuilder.append("      # 在这里添加更多路由，例如：\n");
             configBuilder.append("      # - address: \"").append(address.replace(":25565", "2:25565")).append("\"\n");
             configBuilder.append("      #   priority: 2\n");
             configBuilder.append("      #   enabled: true\n");
+            configBuilder.append("      #   max-bandwidth: 1048576  # 1MB/s 带宽限制\n");
             configBuilder.append("    auto-sort: true\n");
             configBuilder.append("    ping-interval: 30\n");
             configBuilder.append("    ping-timeout: 5000\n\n");
@@ -87,7 +89,6 @@ public class ConfigManager {
             hasServers = true;
         }
         
-        // 如果没有找到服务器，创建示例配置
         if (!hasServers) {
             configBuilder.append("  # 没有检测到Velocity服务器，以下是示例配置\n");
             configBuilder.append("  survival:\n");
@@ -95,9 +96,11 @@ public class ConfigManager {
             configBuilder.append("      - address: \"survival1.example.com:25565\"\n");
             configBuilder.append("        priority: 1\n");
             configBuilder.append("        enabled: true\n");
+            configBuilder.append("        max-bandwidth: 1048576  # 1MB/s 带宽限制\n");
             configBuilder.append("      - address: \"survival2.example.com:25565\"\n");
             configBuilder.append("        priority: 2\n");
             configBuilder.append("        enabled: true\n");
+            configBuilder.append("        max-bandwidth: 2097152  # 2MB/s 带宽限制\n");
             configBuilder.append("    auto-sort: true\n");
             configBuilder.append("    ping-interval: 30\n");
             configBuilder.append("    ping-timeout: 5000\n");
@@ -124,22 +127,35 @@ public class ConfigManager {
             
             ServerConfig serverConfig = new ServerConfig(serverName);
             
-            // 解析路由配置
             List<Map<String, Object>> routes = (List<Map<String, Object>>) serverData.get("routes");
             if (routes != null) {
                 for (Map<String, Object> routeData : routes) {
                     String address = (String) routeData.get("address");
                     Integer priority = (Integer) routeData.get("priority");
                     Boolean enabled = (Boolean) routeData.get("enabled");
+                    Object maxBandwidthObj = routeData.get("max-bandwidth");
                     
                     if (address != null && priority != null && enabled != null) {
                         RouteInfo route = new RouteInfo(address, priority, enabled);
+                        
+                        if (maxBandwidthObj != null) {
+                            try {
+                                long maxBandwidth = maxBandwidthObj instanceof Number ? 
+                                    ((Number) maxBandwidthObj).longValue() : 
+                                    Long.parseLong(maxBandwidthObj.toString());
+                                route.setMaxBandwidth(maxBandwidth);
+                            } catch (NumberFormatException e) {
+                                logger.warn("路由 {} 的带宽限制配置无效: {}, 使用默认值 -1", 
+                                        address, maxBandwidthObj);
+                                route.setMaxBandwidth(-1);
+                            }
+                        }
+                        
                         serverConfig.addRoute(route);
                     }
                 }
             }
             
-            // 解析其他配置
             Boolean autoSort = (Boolean) serverData.get("auto-sort");
             if (autoSort != null) {
                 serverConfig.setAutoSort(autoSort);

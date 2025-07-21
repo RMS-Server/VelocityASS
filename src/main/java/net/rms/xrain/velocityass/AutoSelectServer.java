@@ -51,10 +51,8 @@ public class AutoSelectServer {
             routeManager = new RouteManager(configManager, server, logger);
             pingService = new PingService(routeManager, logger);
             
-            // 注册事件监听器
             server.getEventManager().register(this, new ServerConnectionListener(routeManager, logger, server, this));
             
-            // 注册管理命令
             server.getCommandManager().register("vass", new VelocityAssCommand(routeManager, logger));
             server.getCommandManager().register("velocityass", new VelocityAssCommand(routeManager, logger));
             
@@ -72,6 +70,10 @@ public class AutoSelectServer {
         
         if (pingService != null) {
             pingService.stopPingTask();
+        }
+        
+        if (routeManager != null) {
+            routeManager.shutdown();
         }
         
         logger.info("VelocityASS 插件已关闭");
