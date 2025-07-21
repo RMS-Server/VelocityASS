@@ -1,10 +1,6 @@
 # VelocityASS - 高级服务器选择插件
 
-<div align="right">
-  <button onclick="switchLanguage()" id="langBtn" style="padding: 8px 16px; border: none; background: #4CAF50; color: white; border-radius: 4px; cursor: pointer;">🇺🇸 English</button>
-</div>
-
-<div id="chinese" style="display: block;">
+**简体中文** | [English](README_EN.md)
 
 ## 🚀 简介
 
@@ -91,177 +87,43 @@ servers:
 - 自动负载均衡提升整体服务器性能
 - 智能故障转移确保99%+的服务可用性
 
+## 🏗️ 构建项目
+
+```bash
+# 克隆项目
+git clone <repository-url>
+cd velocityASS
+
+# 构建项目
+./gradlew build
+
+# 生成的JAR文件位于
+build/libs/velocityass-x.x.x.jar
+```
+
 ## 🤝 贡献
 
 欢迎提交Issue和Pull Request来帮助改进这个项目！
 
-## 📄 许可证
+### 贡献指南
 
-本项目采用 MIT 许可证。
+1. Fork 这个仓库
+2. 创建你的特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交你的更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开一个 Pull Request
+
 
 ## 👨‍💻 作者
 
 - **XRain** - 项目创建者和维护者
 
+## 🙏 致谢
+
+感谢所有为这个项目做出贡献的开发者和社区成员。
+
+---
+
+<div align="center">
+  如果这个项目对您有帮助，请给个⭐️！
 </div>
-
-<div id="english" style="display: none;">
-
-## 🚀 Introduction
-
-VelocityASS is an advanced server selection plugin designed for Velocity proxy servers, providing intelligent route selection, bandwidth-aware load balancing, and multi-route support. This plugin automatically selects the optimal connection route for players based on network latency, bandwidth usage, and server availability.
-
-## ✨ Key Features
-
-### 🎯 Intelligent Route Selection
-- **Latency Optimization**: Automatically selects the route with the lowest latency
-- **Priority System**: Support for setting priorities for different routes
-- **Automatic Failover**: Automatically switches to backup routes when primary routes are unavailable
-
-### 🌐 Bandwidth-Aware Load Balancing
-- **Real-time Monitoring**: Updates bandwidth usage statistics every 5 seconds
-- **Intelligent Distribution**: Automatically distributes traffic to other routes when route bandwidth usage reaches 85%
-- **Custom Limits**: Support for setting different bandwidth limits for each route
-
-### 📊 Multi-Route Support
-- **Multi-line Configuration**: Configure multiple different connection routes for one server
-- **Flexible Management**: Support for dynamically enabling/disabling specific routes
-- **Status Monitoring**: Real-time monitoring of connection status and performance for each route
-
-## 📦 Installation Guide
-
-### Prerequisites
-- Velocity 3.1.0+
-- Java 17+
-
-### Installation Steps
-1. Download the latest `VelocityASS-x.x.x.jar` file
-2. Place the plugin file in the `plugins` folder of your Velocity server
-3. Restart the Velocity server
-4. The plugin will automatically generate the configuration file `config.yml`
-
-## ⚙️ Configuration
-
-Configuration file location: `plugins/velocityass/config.yml`
-
-### Basic Configuration Example
-
-```yaml
-servers:
-  lobby:
-    routes:
-      - address: "lobby1.example.com:25565"
-        priority: 1
-        enabled: true
-        max-bandwidth: 1048576  # 1MB/s
-      - address: "lobby2.example.com:25565"
-        priority: 2
-        enabled: true
-        max-bandwidth: 2097152  # 2MB/s
-    auto-sort: true
-    ping-interval: 30
-    ping-timeout: 5000
-```
-
-### Configuration Parameters
-
-- **address**: Server address and port
-- **priority**: Priority (lower numbers have higher priority)
-- **enabled**: Whether to enable this route
-- **max-bandwidth**: Maximum bandwidth limit (bytes/second, -1 for unlimited)
-- **auto-sort**: Whether to automatically sort by latency
-- **ping-interval**: Ping detection interval (seconds)
-- **ping-timeout**: Ping timeout (milliseconds)
-
-## 🎮 Commands
-
-- `/vass` or `/velocityass` - View plugin status and route information
-- `/vass reload` - Reload configuration file
-- `/vass status` - Display route status for all servers
-
-## 🔧 Technical Features
-
-- **Asynchronous Processing**: All network detection and bandwidth monitoring run in separate threads
-- **Memory Optimization**: Efficient data structures and caching mechanisms
-- **Fault Tolerance**: Comprehensive error handling and automatic recovery features
-- **Performance Monitoring**: Detailed debug logs and performance statistics
-
-## 📈 Performance Benefits
-
-- Reduce player connection latency by up to 30%
-- Automatic load balancing improves overall server performance
-- Intelligent failover ensures 99%+ service availability
-
-## 🤝 Contributing
-
-Issues and Pull Requests are welcome to help improve this project!
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 👨‍💻 Author
-
-- **XRain** - Project creator and maintainer
-
-</div>
-
-<script>
-function switchLanguage() {
-    const chinese = document.getElementById('chinese');
-    const english = document.getElementById('english');
-    const btn = document.getElementById('langBtn');
-    
-    if (chinese.style.display === 'block') {
-        chinese.style.display = 'none';
-        english.style.display = 'block';
-        btn.innerHTML = '🇨🇳 中文';
-    } else {
-        chinese.style.display = 'block';
-        english.style.display = 'none';
-        btn.innerHTML = '🇺🇸 English';
-    }
-}
-
-// Auto-detect language based on browser settings
-document.addEventListener('DOMContentLoaded', function() {
-    const browserLang = navigator.language || navigator.userLanguage;
-    if (browserLang.startsWith('zh')) {
-        // Chinese is already displayed by default
-        document.getElementById('langBtn').innerHTML = '🇺🇸 English';
-    } else {
-        switchLanguage(); // Switch to English
-    }
-});
-</script>
-
-<style>
-#langBtn:hover {
-    background: #45a049;
-    transform: scale(1.05);
-    transition: all 0.3s ease;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-code {
-    background: #f4f4f4;
-    padding: 2px 4px;
-    border-radius: 3px;
-}
-
-pre {
-    background: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 15px;
-    overflow-x: auto;
-}
-
-h1, h2 {
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
-}
-</style>
