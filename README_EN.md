@@ -3,7 +3,7 @@
 [简体中文](README.md) | **English**
 
 > [!CAUTION]
-> The bandwidth functionality requires dependency on[RMS-specific Velocity](https://github.com/RMS-Server/Velocity)
+> The bandwidth functionality requires dependency on [RMS-specific Velocity](https://github.com/RMS-Server/Velocity)
 
 ## 🚀 Introduction
 
