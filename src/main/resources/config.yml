@@ -7,7 +7,8 @@
 #       - address: "服务器地址:端口"
 #         priority: 优先级数字(越小越优先)
 #         enabled: true/false
-#         max-bandwidth: 1048576 (最大带宽限制，字节/秒，-1表示无限制)
+#         max-bandwidth: 1048576 (固定带宽限制，字节/秒，-1表示无限制)
+#         use-scheduled-bandwidth: true/false (是否使用分时段带宽，默认false)
 #     auto-sort: true/false (是否根据延迟自动排序)
 #     ping-interval: 30 (ping检测间隔，秒)
 #     ping-timeout: 5000 (ping超时时间，毫秒)
@@ -17,6 +18,14 @@
 #   - -1 或 0: 无限制
 #   - 1048576: 1MB/s
 #   - 2097152: 2MB/s
+# - use-scheduled-bandwidth: 启用分时段带宽模式（默认false使用固定带宽）
+# - bandwidth-schedule: 分时段带宽限制配置
+#   - default: 默认带宽限制
+#   - time-slots: 时间段列表
+#     - start: 开始时间（格式：HH:mm）
+#     - end: 结束时间（格式：HH:mm 或 NDHH:mm 表示次日）
+#     - bandwidth: 该时间段的带宽限制
+#     - priority: 优先级（可选，数字越小越优先）
 # - 系统会自动监控每个路由的带宽使用情况
 # - 当优先级高的路由达到带宽限制的85%时，新连接会路由到下一个优先级的路由
 # - 每5秒更新一次带宽使用统计
@@ -29,11 +38,27 @@ servers:
         priority: 1
         enabled: true
         max-bandwidth: 1048576  # 1MB/s 带宽限制
+        # 分时段带宽调度示例（需要同时设置 use-scheduled-bandwidth: true）
+        use-scheduled-bandwidth: true  # 启用分时段带宽
+        bandwidth-schedule:
+          default: 1048576  # 默认1MB/s
+          time-slots:
+            # 白天高带宽时段（8点到18点）
+            - start: "08:00"
+              end: "18:00"
+              bandwidth: 2097152  # 2MB/s
+              priority: 1
+            # 夜间跨天低带宽时段（晚22点到次日凌晨6点）
+            - start: "22:00"
+              end: "ND06:00"  # ND表示次日
+              bandwidth: 512000   # 512KB/s
+              priority: 2
       # 为同一个服务器添加更多线路：
       # - address: "example2.com:25565"
       #   priority: 2
       #   enabled: true
       #   max-bandwidth: 2097152  # 2MB/s 带宽限制
+      #   use-scheduled-bandwidth: false  # 使用固定带宽
     auto-sort: true
     ping-interval: 30
     ping-timeout: 5000

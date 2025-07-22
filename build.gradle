@@ -8,18 +8,18 @@ version = file('plugin.version').text.trim().substring(1)  // 去除V前缀
 sourceCompatibility = '17'
 
 repositories {
-    // 本地API jar文件目录
+    // RMS Velocity API
     flatDir {
         dirs 'api'
     }
 
-    // 华为云Maven镜像优先
+    
     maven {
         name = 'huawei-maven'  
         url = 'https://repo.huaweicloud.com/repository/maven/'
     }
     
-    // PaperMC仓库
+    
     maven {
         name = 'papermc-repo'
         url = 'https://repo.papermc.io/repository/maven-public/'
@@ -27,7 +27,7 @@ repositories {
 }
 
 dependencies {
-    // 使用本地构建的velocity-api jar文件
+    // RMS Velocity API
     compileOnly files('api/velocity-api-3.1.1-SNAPSHOT-all.jar')
     annotationProcessor files('api/velocity-api-3.1.1-SNAPSHOT-all.jar')
     
@@ -52,7 +52,7 @@ jar {
     }
 }
 
-// 更新velocity-plugin.json中的版本号
+
 task updatePluginJson {
     doLast {
         def pluginJsonFile = file('src/main/resources/velocity-plugin.json')
@@ -64,7 +64,7 @@ task updatePluginJson {
     }
 }
 
-// 更新Java源文件中@Plugin注解的版本号
+
 task updateJavaVersion {
     doLast {
         def javaFile = file('src/main/java/net/rms/xrain/velocityass/AutoSelectServer.java')
@@ -74,5 +74,5 @@ task updateJavaVersion {
     }
 }
 
-// 确保在编译之前更新版本号
+
 compileJava.dependsOn updatePluginJson, updateJavaVersion

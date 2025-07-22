@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.player.BandwidthManager;
 import com.velocitypowered.api.proxy.player.BandwidthSnapshot;
 import com.velocitypowered.api.proxy.player.PlayerBandwidthStats;
+import net.rms.xrain.velocityass.config.BandwidthTimeSlot;
 import net.rms.xrain.velocityass.config.RouteInfo;
 import net.rms.xrain.velocityass.config.ServerConfig;
 import org.slf4j.Logger;
@@ -55,9 +56,20 @@ public class BandwidthAwareRouteSelector {
         if (selectedRoute != null) {
             serverConfig.getRoutes().forEach(route -> route.removeConnectedPlayer(playerId));
             selectedRoute.addConnectedPlayer(playerId);
-            logger.debug("为玩家 {} 选择路由: {} (优先级: {}, 带宽使用率: {:.1f}%)", 
+            
+            String scheduleInfo = "";
+            if (selectedRoute.getBandwidthSchedule() != null && selectedRoute.getBandwidthSchedule().hasTimeSlots()) {
+                BandwidthTimeSlot currentSlot = selectedRoute.getCurrentTimeSlot();
+                if (currentSlot != null) {
+                    scheduleInfo = String.format(" [时间段: %s-%s]", currentSlot.getStartTime(), currentSlot.getEndTime());
+                } else {
+                    scheduleInfo = " [默认带宽]";
+                }
+            }
+            
+            logger.debug("为玩家 {} 选择路由: {} (优先级: {}, 带宽使用率: {:.1f}%{})", 
                     playerId, selectedRoute.getAddress(), 
-                    selectedRoute.getPriority(), selectedRoute.getBandwidthUtilization());
+                    selectedRoute.getPriority(), selectedRoute.getCurrentBandwidthUtilization(), scheduleInfo);
         } else {
             logger.warn("服务器 {} 没有可用的路由（所有路由都已达到带宽限制）", serverConfig.getServerName());
         }
@@ -76,7 +88,7 @@ public class BandwidthAwareRouteSelector {
                         if (priorityCompare != 0) {
                             return priorityCompare;
                         }
-                        return Double.compare(r1.getBandwidthUtilization(), r2.getBandwidthUtilization());
+                        return Double.compare(r1.getCurrentBandwidthUtilization(), r2.getCurrentBandwidthUtilization());
                     })
                     .findFirst()
                     .orElse(null);
@@ -84,8 +96,19 @@ public class BandwidthAwareRouteSelector {
             if (route != null) {
                 serverConfig.getRoutes().forEach(r -> r.removeConnectedPlayer(playerId));
                 route.addConnectedPlayer(playerId);
-                logger.warn("使用fallback路由为玩家 {} 选择: {} (带宽使用率: {:.1f}%)", 
-                        playerId, route.getAddress(), route.getBandwidthUtilization());
+                
+                String scheduleInfo = "";
+                if (route.getBandwidthSchedule() != null && route.getBandwidthSchedule().hasTimeSlots()) {
+                    BandwidthTimeSlot currentSlot = route.getCurrentTimeSlot();
+                    if (currentSlot != null) {
+                        scheduleInfo = String.format(" [时间段: %s-%s]", currentSlot.getStartTime(), currentSlot.getEndTime());
+                    } else {
+                        scheduleInfo = " [默认带宽]";
+                    }
+                }
+                
+                logger.warn("使用fallback路由为玩家 {} 选择: {} (带宽使用率: {:.1f}%{})", 
+                        playerId, route.getAddress(), route.getCurrentBandwidthUtilization(), scheduleInfo);
             }
         }
         
@@ -93,10 +116,11 @@ public class BandwidthAwareRouteSelector {
     }
     
     private boolean isBandwidthAvailableForNewConnection(RouteInfo route) {
-        if (!route.isBandwidthLimited()) {
+        if (!route.isCurrentlyBandwidthLimited()) {
+            return true;
         }
         
-        double utilizationRate = route.getBandwidthUtilization() / 100.0;
+        double utilizationRate = route.getCurrentBandwidthUtilization() / 100.0;
         return utilizationRate < BANDWIDTH_THRESHOLD;
     }
     

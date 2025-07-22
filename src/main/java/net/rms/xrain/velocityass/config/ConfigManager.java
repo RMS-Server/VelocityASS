@@ -59,7 +59,18 @@ public class ConfigManager {
         configBuilder.append("#       - address: \"服务器地址:端口\"\n");
         configBuilder.append("#         priority: 优先级数字(越小越优先)\n");
         configBuilder.append("#         enabled: true/false\n");
-        configBuilder.append("#         max-bandwidth: 1048576 (最大带宽限制，字节/秒，-1表示无限制)\n");
+        configBuilder.append("#         max-bandwidth: 1048576 (固定带宽限制，字节/秒，-1表示无限制)\n");
+        configBuilder.append("#         use-scheduled-bandwidth: true/false (是否使用分时段带宽，默认false)\n");
+        configBuilder.append("#         bandwidth-schedule: (可选，分时段带宽限制配置)\n");
+        configBuilder.append("#           default: 1048576  # 默认带宽限制\n");
+        configBuilder.append("#           time-slots:\n");
+        configBuilder.append("#             - start: \"08:00\"    # 开始时间\n");
+        configBuilder.append("#               end: \"18:00\"      # 结束时间\n");
+        configBuilder.append("#               bandwidth: 2097152  # 该时间段带宽\n");
+        configBuilder.append("#               priority: 1         # 优先级(可选)\n");
+        configBuilder.append("#             - start: \"22:00\"    # 跨天示例\n");
+        configBuilder.append("#               end: \"ND06:00\"    # ND表示次日\n");
+        configBuilder.append("#               bandwidth: 512000   # 夜间低带宽\n");
         configBuilder.append("#     auto-sort: true/false (是否根据延迟自动排序)\n");
         configBuilder.append("#     ping-interval: 30 (ping检测间隔，秒)\n");
         configBuilder.append("#     ping-timeout: 5000 (ping超时时间，毫秒)\n\n");
@@ -77,11 +88,23 @@ public class ConfigManager {
             configBuilder.append("        priority: 1\n");
             configBuilder.append("        enabled: true\n");
             configBuilder.append("        max-bandwidth: -1  # 无带宽限制\n");
+            configBuilder.append("        # 分时段带宽调度示例（需要同时设置 use-scheduled-bandwidth: true）\n");
+            configBuilder.append("        # use-scheduled-bandwidth: false  # 使用固定带宽\n");
+            configBuilder.append("        # bandwidth-schedule:\n");
+            configBuilder.append("        #   default: 1048576  # 默认1MB/s\n");
+            configBuilder.append("        #   time-slots:\n");
+            configBuilder.append("        #     - start: \"08:00\"\n");
+            configBuilder.append("        #       end: \"18:00\"\n");
+            configBuilder.append("        #       bandwidth: 2097152  # 白天2MB/s\n");
+            configBuilder.append("        #     - start: \"22:00\"\n");
+            configBuilder.append("        #       end: \"ND06:00\"  # 夜间到次日\n");
+            configBuilder.append("        #       bandwidth: 512000   # 夜间512KB/s\n");
             configBuilder.append("      # 在这里添加更多路由，例如：\n");
             configBuilder.append("      # - address: \"").append(address.replace(":25565", "2:25565")).append("\"\n");
             configBuilder.append("      #   priority: 2\n");
             configBuilder.append("      #   enabled: true\n");
-            configBuilder.append("      #   max-bandwidth: 1048576  # 1MB/s 带宽限制\n");
+            configBuilder.append("      #   max-bandwidth: 1048576  # 固定1MB/s带宽限制\n");
+            configBuilder.append("      #   use-scheduled-bandwidth: false  # 使用固定带宽\n");
             configBuilder.append("    auto-sort: true\n");
             configBuilder.append("    ping-interval: 30\n");
             configBuilder.append("    ping-timeout: 5000\n\n");
@@ -96,11 +119,23 @@ public class ConfigManager {
             configBuilder.append("      - address: \"survival1.example.com:25565\"\n");
             configBuilder.append("        priority: 1\n");
             configBuilder.append("        enabled: true\n");
-            configBuilder.append("        max-bandwidth: 1048576  # 1MB/s 带宽限制\n");
+            configBuilder.append("        max-bandwidth: 1048576  # 固定1MB/s 带宽限制\n");
+            configBuilder.append("        # 启用分时段带宽调度示例\n");
+            configBuilder.append("        use-scheduled-bandwidth: true  # 启用分时段带宽\n");
+            configBuilder.append("        bandwidth-schedule:\n");
+            configBuilder.append("          default: 1048576  # 默认1MB/s\n");
+            configBuilder.append("          time-slots:\n");
+            configBuilder.append("            - start: \"08:00\"\n");
+            configBuilder.append("              end: \"18:00\"\n");
+            configBuilder.append("              bandwidth: 2097152  # 白天高带宽2MB/s\n");
+            configBuilder.append("            - start: \"18:00\"\n");
+            configBuilder.append("              end: \"ND01:00\"  # 晚18点到次日1点\n");
+            configBuilder.append("              bandwidth: 512000   # 夜间低带宽512KB/s\n");
             configBuilder.append("      - address: \"survival2.example.com:25565\"\n");
             configBuilder.append("        priority: 2\n");
             configBuilder.append("        enabled: true\n");
-            configBuilder.append("        max-bandwidth: 2097152  # 2MB/s 带宽限制\n");
+            configBuilder.append("        max-bandwidth: 2097152  # 固定2MB/s 带宽限制\n");
+            configBuilder.append("        use-scheduled-bandwidth: false  # 使用固定带宽\n");
             configBuilder.append("    auto-sort: true\n");
             configBuilder.append("    ping-interval: 30\n");
             configBuilder.append("    ping-timeout: 5000\n");
@@ -151,6 +186,26 @@ public class ConfigManager {
                             }
                         }
                         
+                        // 解析带宽模式开关
+                        Boolean useScheduledBandwidth = (Boolean) routeData.get("use-scheduled-bandwidth");
+                        if (useScheduledBandwidth != null) {
+                            route.setUseScheduledBandwidth(useScheduledBandwidth);
+                        }
+                        
+                        // 解析分时段带宽调度
+                        Object bandwidthScheduleObj = routeData.get("bandwidth-schedule");
+                        if (bandwidthScheduleObj instanceof Map) {
+                            TimeBasedBandwidthSchedule schedule = parseBandwidthSchedule((Map<String, Object>) bandwidthScheduleObj, address);
+                            if (schedule != null) {
+                                route.setBandwidthSchedule(schedule);
+                                if (route.isUseScheduledBandwidth()) {
+                                    logger.info("路由 {} 启用分时段带宽调度: {}", address, schedule.getScheduleInfo());
+                                } else {
+                                    logger.info("路由 {} 配置了分时段带宽调度但未启用: {}", address, schedule.getScheduleInfo());
+                                }
+                            }
+                        }
+                        
                         serverConfig.addRoute(route);
                     }
                 }
@@ -187,5 +242,91 @@ public class ConfigManager {
     public void reloadConfig() throws IOException {
         loadConfig();
         logger.info("配置文件已重新加载");
+    }
+    
+    @SuppressWarnings("unchecked")
+    private TimeBasedBandwidthSchedule parseBandwidthSchedule(Map<String, Object> scheduleData, String routeAddress) {
+        try {
+            TimeBasedBandwidthSchedule schedule = new TimeBasedBandwidthSchedule();
+            
+            // 解析默认带宽
+            Object defaultBandwidthObj = scheduleData.get("default");
+            if (defaultBandwidthObj != null) {
+                try {
+                    long defaultBandwidth = defaultBandwidthObj instanceof Number ? 
+                        ((Number) defaultBandwidthObj).longValue() : 
+                        Long.parseLong(defaultBandwidthObj.toString());
+                    schedule.setDefaultBandwidth(defaultBandwidth);
+                } catch (NumberFormatException e) {
+                    logger.warn("默认带宽配置无效: {}, 使用 -1", defaultBandwidthObj);
+                    schedule.setDefaultBandwidth(-1);
+                }
+            }
+            
+            // 解析时间段
+            List<Map<String, Object>> timeSlots = (List<Map<String, Object>>) scheduleData.get("time-slots");
+            if (timeSlots != null) {
+                for (Map<String, Object> slotData : timeSlots) {
+                    BandwidthTimeSlot timeSlot = parseTimeSlot(slotData);
+                    if (timeSlot != null) {
+                        schedule.addTimeSlot(timeSlot);
+                    }
+                }
+            }
+            
+            return schedule.isEmpty() ? null : schedule;
+            
+        } catch (Exception e) {
+            logger.error("解析带宽调度配置时发生错误", e);
+            return null;
+        }
+    }
+    
+    private BandwidthTimeSlot parseTimeSlot(Map<String, Object> slotData) {
+        try {
+            String startTime = (String) slotData.get("start");
+            String endTime = (String) slotData.get("end");
+            Object bandwidthObj = slotData.get("bandwidth");
+            
+            if (startTime == null || endTime == null || bandwidthObj == null) {
+                logger.warn("时间段配置不完整，跳过: {}", slotData);
+                return null;
+            }
+            
+            long bandwidth;
+            try {
+                bandwidth = bandwidthObj instanceof Number ? 
+                    ((Number) bandwidthObj).longValue() : 
+                    Long.parseLong(bandwidthObj.toString());
+            } catch (NumberFormatException e) {
+                logger.warn("时间段带宽配置无效: {}, 跳过该时间段", bandwidthObj);
+                return null;
+            }
+            
+            int priority = 0;
+            Object priorityObj = slotData.get("priority");
+            if (priorityObj != null) {
+                try {
+                    priority = priorityObj instanceof Number ? 
+                        ((Number) priorityObj).intValue() : 
+                        Integer.parseInt(priorityObj.toString());
+                } catch (NumberFormatException e) {
+                    logger.warn("时间段优先级配置无效: {}, 使用默认值 0", priorityObj);
+                }
+            }
+            
+            BandwidthTimeSlot timeSlot = new BandwidthTimeSlot(startTime, endTime, bandwidth, priority);
+            
+            if (!timeSlot.isValid()) {
+                logger.warn("时间段配置无效: {} - {}, 跳过", startTime, endTime);
+                return null;
+            }
+            
+            return timeSlot;
+            
+        } catch (Exception e) {
+            logger.error("解析时间段配置时发生错误: {}", slotData, e);
+            return null;
+        }
     }
 }
