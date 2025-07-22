@@ -2,6 +2,9 @@
 
 **简体中文** | [English](README_EN.md)
 
+> [!CAUTION]
+> 带宽功能需要依赖[RMS专用Velocity](https://github.com/RMS-Server/Velocity)
+
 ## 🚀 简介
 
 VelocityASS 是一个为 Velocity 代理服务器设计的高级服务器选择插件，提供智能路由选择、带宽感知负载均衡和多路由支持功能。该插件能够根据网络延迟、带宽使用情况和服务器可用性自动为玩家选择最优的连接路由。

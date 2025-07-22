@@ -2,6 +2,9 @@
 
 [简体中文](README.md) | **English**
 
+> [!CAUTION]
+> The bandwidth functionality requires dependency on[RMS-specific Velocity](https://github.com/RMS-Server/Velocity)
+
 ## 🚀 Introduction
 
 VelocityASS is an advanced server selection plugin designed for Velocity proxy servers, providing intelligent route selection, bandwidth-aware load balancing, and multi-route support. This plugin automatically selects the optimal connection route for players based on network latency, bandwidth usage, and server availability.
